@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard Statut Bot/Site</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #eee; }
+  .status-up { color: green; font-weight: bold; }
+  .status-down { color: red; font-weight: bold; }
+  form > * { margin: 5px 0; }
+  button { padding: 5px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h1>Dashboard Statut Bot/Site</h1>
+
+<table id="statusTable">
+  <thead>
+    <tr>
+      <th>Nom</th>
+      <th>Type</th>
+      <th>URL / Token</th>
+      <th>Statut</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<h2>Ajouter un service</h2>
+<form id="addForm">
+  <label>Type: 
+    <select name="type" required>
+      <option value="">--Choisir--</option>
+      <option value="site">Site Web</option>
+      <option value="bot">Bot Discord</option>
+    </select>
+  </label><br />
+  <label>Nom: <input type="text" name="name" required /></label><br />
+  <label>URL (site) ou Token (bot): <input type="text" name="value" required /></label><br />
+  <button type="submit">Ajouter</button>
+</form>
+
+<script>
+  async function fetchStatus() {
+    const res = await fetch('/api/listesites');
+    const data = await res.json();
+    const tbody = document.querySelector('#statusTable tbody');
+    tbody.innerHTML = '';
+    data.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${s.name}</td>
+        <td>${s.type}</td>
+        <td>${s.url ? s.url : (s.type === 'bot' ? 'Token caché' : '')}</td>
+        <td class="status-${s.status === 'up' ? 'up' : 'down'}">${s.status}</td>
+        <td>
+          <button onclick="removeService('${s.name}')">Supprimer</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function removeService(name) {
+    if (!confirm(`Supprimer "${name}" ?`)) return;
+    const res = await fetch('/api/remove', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name})
+    });
+    const json = await res.json();
+    alert(json.message);
+    fetchStatus();
+  }
+
+  document.getElementById('addForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const form = e.target;
+    const type = form.type.value;
+    const name = form.name.value.trim();
+    const value = form.value.value.trim();
+    if (!type || !name || !value) {
+      alert('Remplis tous les champs !');
+      return;
+    }
+    const res = await fetch('/api/add', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({type, name, value})
+    });
+    const json = await res.json();
+    alert(json.message);
+    if (json.success) form.reset();
+    fetchStatus();
+  });
+
+  fetchStatus();
+  setInterval(fetchStatus, 60000);
+</script>
+
+</body>
+</html>
